@@ -10,10 +10,10 @@ if (isset($_SERVER['argv'][1])) {
 require $cmsFolder . '/Core/AjaxController.php';
 
 // Подключаем класс проверки целостности файлов
-require $cmsFolder . '/Structure/Service/CheckCmsFiles/AjaxController.php';
+require $cmsFolder . '/Structure/Service/CheckSiteFiles/AjaxController.php';
 
 // Собираем хэши файлов
-$systemFiles = Ideal\Structure\Service\CheckCmsFiles\AjaxController::getAllSystemFiles($cmsFolder, $cmsFolder);
+$systemFiles = Ideal\Structure\Service\CheckSiteFiles\AjaxController::getAllSystemFiles($cmsFolder, $cmsFolder);
 
 // Записываем данные в файл информации о хэшах файлов системы
 $file = stream_resolve_include_path($cmsFolder . '/setup/prepare/hash_files');

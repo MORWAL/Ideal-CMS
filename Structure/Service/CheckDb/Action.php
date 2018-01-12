@@ -380,7 +380,7 @@ function diffConfigBaseType($a, $b)
         var text = '';
         $.ajax({
             url: 'index.php',
-            data: {action: 'checkCmsFiles', controller: 'Ideal\\Structure\\Service\\CheckCmsFiles', mode: 'ajax'},
+            data: {action: 'checkCmsFiles', controller: 'Ideal\\Structure\\Service\\CheckSiteFiles', mode: 'ajax'},
             success: function (data)
             {
                 if (data.newFiles) {

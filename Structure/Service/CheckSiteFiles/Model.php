@@ -3,51 +3,36 @@
  * Ideal CMS (http://idealcms.ru/)
  *
  * @link      http://github.com/ideals/idealcms репозиторий исходного кода
- * @copyright Copyright (c) 2012-2017 Ideal CMS (http://idealcms.ru/)
+ * @copyright Copyright (c) 2012-2018 Ideal CMS (http://idealcms.ru/)
  * @license   http://idealcms.ru/license.html LGPL v3
  */
-namespace Ideal\Structure\Service\CheckCmsFiles;
 
-use Ideal\Core\Config;
+namespace Ideal\Structure\Service\CheckSiteFiles;
 
-/**
- * Проверка целостности файлов системы
- *
- */
-class AjaxController extends \Ideal\Core\AjaxController
+class Model
 {
 
     /**
      * Действие срабатывающее при нажатии на кнопку "Проверка целостности файлов"
+     * @param array $actualSystemFilesHash Массив где ключами являются пути до файлов, а значениями их хэши
+     * @param array $existingSystemFilesHash Массив уже имеющихся данных о хэшах файлов
+     * @return array Массив содержащий информацию о новых, удалённых и изменённых файлах
      */
-    public function checkCmsFilesAction()
+    public static function getDiff($actualSystemFilesHash, $existingSystemFilesHash)
     {
-        $config = Config::getInstance();
-        $cmsFolder = DOCUMENT_ROOT . '/' . $config->cmsFolder . '/Ideal';
-
-        // Получаем актуальную информацию о хэшах системных файлов
-        $actualSystemFilesHash = self::getAllSystemFiles($cmsFolder, $cmsFolder);
-
-        // Подгружаем имеющуюся информацию о хэшах системных файлов
-        $existingSystemFilesHash = unserialize(file_get_contents($cmsFolder . '/setup/prepare/hash_files'));
+        $response = array();
 
         // Получаем список новых системных файлов
-        $newFiles = array_diff_key($actualSystemFilesHash, $existingSystemFilesHash);
+        $response['newFiles'] = array_diff_key($actualSystemFilesHash, $existingSystemFilesHash);
 
         // Получаем список системных файлов которые были удалены
-        $delFiles = array_diff_key($existingSystemFilesHash, $actualSystemFilesHash);
+        $response['delFiles'] = array_diff_key($existingSystemFilesHash, $actualSystemFilesHash);
 
         // Получаем список файлов, которые были изменены
         $changeFiles = array_diff($actualSystemFilesHash, $existingSystemFilesHash);
-        $changeFiles = array_diff($changeFiles, $newFiles);
+        $response['changeFiles'] = array_diff($changeFiles, $response['newFiles']);
 
-        // Получаем строковое представление всех различий
-        $changeFiles = implode('<br />', array_keys($changeFiles));
-        $delFiles = implode('<br />', array_keys($delFiles));
-        $newFiles = implode('<br />', array_keys($newFiles));
-
-        print json_encode(array('newFiles' => $newFiles, 'delFiles' => $delFiles, 'changeFiles' => $changeFiles));
-        exit;
+        return $response;
     }
 
     /**
