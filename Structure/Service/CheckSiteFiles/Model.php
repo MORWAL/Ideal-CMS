@@ -40,22 +40,35 @@ class Model
      *
      * @param string $folder Путь до сканируемой папки
      * @param string $cmsFolder Путь до корневой папки системы
+     * @param array $excludedPatterns Массив со списком регулярных выражений для исключения из сбора папок и файлов
      * @return array Массив где ключами являются пути до файлов, а значениями их хэши
      */
-    public static function getAllSystemFiles($folder, $cmsFolder)
+    public static function getAllSystemFiles($folder, $cmsFolder, $excludedPatterns = array())
     {
         $systemFiles = array();
+
+        // Добавляем в массив исключений заранее известные значения
+        if (!array_search('\.{1,2}', $excludedPatterns)) {
+            $excludedPatterns[] = '\.{1,2}';
+            $excludedPatterns[] = 'hash_files';
+            $excludedPatterns[] = '\/\.git';
+            $excludedPatterns[] = '\.git.*?';
+        }
         $files = scandir($folder);
+        $relativePath = str_replace($cmsFolder, '', $folder);
         foreach ($files as $file) {
             // Отбрасываем не нужные каталоги и файлы
-            if (preg_match('/^\.{1,2}$|hash_files$/isU', $file)) {
-                continue;
+            foreach ($excludedPatterns as $pattern) {
+                if (preg_grep('/^' . $pattern . '$/isU', array($file, $relativePath . '/' . $file))) {
+                    continue 2;
+                }
             }
             // Если директория, то запускаем сбор внутри директории
             if (is_dir($folder . '/' . $file)) {
-                $systemFiles = array_merge($systemFiles, self::getAllSystemFiles($folder . '/' . $file, $cmsFolder));
+                $systemFilesTemp = self::getAllSystemFiles($folder . '/' . $file, $cmsFolder, $excludedPatterns);
+                $systemFiles = array_merge($systemFiles, $systemFilesTemp);
             } else {
-                $fileKeyArray = ltrim(str_replace($cmsFolder, '', $folder) . '/' . $file, '/');
+                $fileKeyArray = ltrim($relativePath . '/' . $file, '/');
                 $systemFiles[$fileKeyArray] = hash_file('crc32b', $folder . '/' . $file);
             }
         }

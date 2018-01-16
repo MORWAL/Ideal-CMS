@@ -16,13 +16,25 @@ if ($config->monitoring['scanDir']) {
     $checkFolder .= $config->monitoring['scanDir'];
 }
 
+// Собираем пути для исключения из сканировани
+$excluded = array();
+if ($config->monitoring['excludedScanDir']) {
+    $excluded = explode(PHP_EOL, $config->monitoring['excludedScanDir']);
+    // Подготавливаем пути исключений из сканирования для использования в регулярных выражениях
+    if ($excluded) {
+        foreach ($excluded as &$value) {
+            $value = preg_quote($value, '/');
+        }
+    }
+}
+
 if (!file_exists($checkFolder)) {
     $message = 'Указанной папки для сканирования не существует';
 } else {
     $cmsFolder = $siteFolder . '/' . $config->cmsFolder;
 
     // Собираем хэши файлов
-    $siteFiles = CheckSiteFilesModel::getAllSystemFiles($checkFolder, '');
+    $siteFiles = CheckSiteFilesModel::getAllSystemFiles($checkFolder, $siteFolder, $excluded);
 
     // Записываем данные в файл информации о хэшах файлов системы
     $file = $siteFolder . '/tmp/site_hash_files';
