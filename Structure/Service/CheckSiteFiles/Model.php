@@ -48,7 +48,7 @@ class Model
         $files = scandir($folder);
         foreach ($files as $file) {
             // Отбрасываем не нужные каталоги и файлы
-            if (preg_match('/^\..*?|hash_files$/isU', $file)) {
+            if (preg_match('/^\.{1,2}$|hash_files$/isU', $file)) {
                 continue;
             }
             // Если директория, то запускаем сбор внутри директории
