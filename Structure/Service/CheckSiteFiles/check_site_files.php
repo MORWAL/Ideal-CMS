@@ -33,7 +33,14 @@ if ($config->monitoring['excludedScanDir']) {
 if (!file_exists($checkFolder)) {
     $message = 'Указанной папки для сканирования не существует';
 } else {
-    $file = $siteFolder . '/tmp/site_hash_files';
+    // Получаем папку, куда будет сохранён файл с хэшами
+    if ($config->monitoring['tmpDir']) {
+        $file = $siteFolder . $config->monitoring['tmpDir'] . '/site_hash_files';
+    } else {
+        // Если папка хранения файла не указана, то считаем что запись будет идти в папку "tmp" в корне сайта
+        $file = $siteFolder . '/tmp/site_hash_files';
+    }
+
     $cmsFolder = $siteFolder . '/' . $config->cmsFolder;
 
     // Собираем хэши файлов
