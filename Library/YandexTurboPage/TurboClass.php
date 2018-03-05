@@ -148,7 +148,7 @@ class TurboClass
                 $item = $this->rss->channel->addChild('item');
                 $item->addAttribute('turbo', 'true');
                 $item->addChild('link', $url);
-                $item->addChild('turbo:content', "<![CDATA[\n{$contentToFeed}\n]]>", 'http://because.it.necessary');
+                $item->addChild('xmlsn:turbo:content', "<![CDATA[\n{$contentToFeed}");
             }
 
             // И удаляем из массива непройденных
@@ -521,11 +521,11 @@ class TurboClass
      */
     private function getNewSimpleXmlObject($title = '', $description = '')
     {
-        $rss = new \SimpleXMLElement("<?xml version=\"1.0\" encoding=\"windows-1251\"?><rss></rss>");
-        $rss->addAttribute('xmlns:atom', 'http://www.w3.org/2005/Atom');
-        $rss->addAttribute('xmlns:dc', 'http://purl.org/dc/elements/1.1/');
-        $rss->addAttribute('xmlns:content', 'http://purl.org/rss/1.0/modules/content/');
-        $rss->addAttribute('xmlns:turbo', 'http://turbo.yandex.ru');
+        $rss = new \SimpleXMLElement("<?xml version=\"1.0\" encoding=\"utf-8\"?><rss></rss>");
+        $rss->addAttribute('xmlns:xmlns:atom', 'http://www.w3.org/2005/Atom');
+        $rss->addAttribute('xmlns:xmlns:dc', 'http://purl.org/dc/elements/1.1/');
+        $rss->addAttribute('xmlns:xmlns:content', 'http://purl.org/rss/1.0/modules/content/');
+        $rss->addAttribute('xmlns:xmlns:turbo', 'http://turbo.yandex.ru');
         $rss->addAttribute('version', '2.0');
         $channel = $rss->addChild('channel');
         $channel->addChild('title', $title ? $title : $this->rss->channel->title);
