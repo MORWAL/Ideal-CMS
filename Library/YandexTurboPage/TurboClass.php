@@ -17,7 +17,7 @@ class TurboClass
     /** @var array Ссылки на страницы, которые нужно представить в турбо-фиде */
     private $links = array();
 
-    /** @var SimpleXMLElement Фид яндекса в виде объекта */
+    /** @var \SimpleXMLElement Фид яндекса в виде объекта */
     private $rss;
 
     /** @var array Массив для данных из конфига */
@@ -34,6 +34,9 @@ class TurboClass
 
     /** @var bool Флаг необходимости сброса ранее собранных страниц */
     private $clearTemp = false;
+
+    /** @var bool Допустимое количество элементов в одном фиде */
+    private $itemsLimit = 500;
 
     /** @var array Массив параметров curl для получения заголовков и html кода страниц */
     private $options = array(
@@ -92,7 +95,7 @@ class TurboClass
     }
 
     /**
-     * Функция отправки сообщение об отловленных ошибках в процессе создания фида
+     * Функция отправки сообщений на почту
      *
      * @param string $text Сообщение(отчет)
      * @param string $to Email того, кому отправить письмо
@@ -104,8 +107,8 @@ class TurboClass
             . "Content-type: text/plain; charset=utf-8\r\n"
             . 'From: turbofeed@' . $this->host;
 
-        $to = (empty($to)) ? $this->config['email_notify'] : $to;
-        $subject = (empty($subject)) ? $this->host . ' sitemap' : $subject;
+        $to = (empty($to)) ? $this->config['error_email_notify'] : $to;
+        $subject = (empty($subject)) ? $this->host . ' yandex turbo-pages' : $subject;
 
         // Отправляем письма об изменениях
         mail($to, $subject, $text, $header);
@@ -239,6 +242,8 @@ class TurboClass
     }
 
     /**
+     * Проверяет возможность работы с файлом фида турбо-страниц для яндекса
+     *
      * @throws \Exception
      */
     protected function prepareYandexRssFile()
@@ -282,6 +287,12 @@ class TurboClass
         }
     }
 
+
+    /**
+     * Создание временного файла и получение из него инфорации
+     *
+     * @throws \Exception
+     */
     protected function prepareTempFile()
     {
         // Если временного файла нет, то создаём его
@@ -292,16 +303,7 @@ class TurboClass
             // Получаем title и description для составления заголовка фида
             $meta = $this->getMetaTags($content);
 
-            $rss = new \SimpleXMLElement("<?xml version=\"1.0\" encoding=\"windows-1251\"?><rss></rss>");
-            $rss->addAttribute('xmlns:atom', 'http://www.w3.org/2005/Atom');
-            $rss->addAttribute('xmlns:dc', 'http://purl.org/dc/elements/1.1/');
-            $rss->addAttribute('xmlns:content', 'http://purl.org/rss/1.0/modules/content/');
-            $rss->addAttribute('xmlns:turbo', 'http://turbo.yandex.ru');
-            $rss->addAttribute('version', '2.0');
-            $channel = $rss->addChild('channel');
-            $channel->addChild('title', $meta['title']);
-            $channel->addChild('link', $this->config['website']);
-            $channel->addChild('description', $meta['description']);
+            $rss = self::getNewSimpleXmlObject($meta['title'], $meta['description']);
             $rss->saveXML($this->config['pageroot'] . $this->config['yandexRssTempFile']);
             $this->rss = $rss;
         } else {
@@ -322,6 +324,10 @@ class TurboClass
         return array('title' => $title[1], 'description' => $description[1]);
     }
 
+
+    /**
+     * Получние ссылок из файла карты сайта
+     */
     protected function getLinksFromSitemap()
     {
         // Считываем из файла необработанные ссылки
@@ -368,8 +374,37 @@ class TurboClass
     {
         $this->saveTempFeed();
 
-        // Копируем временный фид в актуальный
-        file_put_contents($this->config['pageroot'] . $this->config['yandexRssFile'], file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']));
+        // Проверяем количество элементов в получившемся фиде и если превысили лимит, то разбиваем по нескольким файлам
+        if (count($this->rss->channel->item) > $this->itemsLimit) {
+            // Проверяем не превысит ли количество файлов фидов допустимое значение из настроек
+            $countFilesFeed = ceil(count($this->rss->channel->item) / $this->itemsLimit);
+            if ($countFilesFeed > $this->config['max_file_feed_num']) {
+                $message = 'Количество созданных файлов-фидов (' . $countFilesFeed . ')';
+                $message .= ' превышает указанные в настройках значения (' . $this->config['max_file_feed_num'] . ')';
+                $this->sendEmail($message, $this->config['manager_email_notify']);
+            }
+            $filesParts = pathinfo($this->config['yandexRssFile']);
+            $i = 1;
+            $fileNum = '';
+            $newFeedRss = self::getNewSimpleXmlObject();
+            foreach ($this->rss->channel->item as $item) {
+                if ($i > $this->itemsLimit) {
+                    $newFeedRss->saveXML($this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'] . $fileNum . '.' . $filesParts['extension']);
+                    $newFeedRss = self::getNewSimpleXmlObject();
+                    $fileNum = (int)$fileNum + 1;
+                    $i = 1;
+                }
+                $newItem = $newFeedRss->channel->addChild('item');
+                $newItem->addAttribute('turbo', 'true');
+                $newItem->addChild('link', $item->link);
+                $newItem->addChild('turbo:content', $item->children('turbo', true)->content, 'http://because.it.necessary');
+                $i++;
+            }
+            $newFeedRss->saveXML($this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'] . $fileNum . '.' . $filesParts['extension']);
+        } else {
+            // Копируем временный фид в актуальный
+            file_put_contents($this->config['pageroot'] . $this->config['yandexRssFile'], file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']));
+        }
 
         // Удаляем временный файл
         unlink($this->config['pageroot'] . $this->config['yandexRssTempFile']);
@@ -378,6 +413,9 @@ class TurboClass
         file_put_contents($this->config['pageroot'] . $this->config['linksFile'], '');
     }
 
+    /**
+     * Сохранение промежуточных значений во временный файл
+     */
     private function saveTempFeed()
     {
         $this->rss->saveXML($this->config['pageroot'] . $this->config['yandexRssTempFile']);
@@ -472,5 +510,27 @@ class TurboClass
         $turboContent = htmlspecialchars($turboContent);
 
         return $turboContent;
+    }
+
+    /**
+     * Генерация скилета нового XML-документа фида в виде объекта "SimpleXMLElement"
+     *
+     * @param string $title Значение тэга "title" нового XML-документа
+     * @param string $description Значение тэга "description" нового XML-документа
+     * @return \SimpleXMLElement
+     */
+    private function getNewSimpleXmlObject($title = '', $description = '')
+    {
+        $rss = new \SimpleXMLElement("<?xml version=\"1.0\" encoding=\"windows-1251\"?><rss></rss>");
+        $rss->addAttribute('xmlns:atom', 'http://www.w3.org/2005/Atom');
+        $rss->addAttribute('xmlns:dc', 'http://purl.org/dc/elements/1.1/');
+        $rss->addAttribute('xmlns:content', 'http://purl.org/rss/1.0/modules/content/');
+        $rss->addAttribute('xmlns:turbo', 'http://turbo.yandex.ru');
+        $rss->addAttribute('version', '2.0');
+        $channel = $rss->addChild('channel');
+        $channel->addChild('title', $title ? $title : $this->rss->channel->title);
+        $channel->addChild('link', $this->config['website']);
+        $channel->addChild('description', $description ? $description : $this->rss->channel->description);
+        return $rss;
     }
 }
