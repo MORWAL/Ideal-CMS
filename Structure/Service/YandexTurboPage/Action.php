@@ -1,6 +1,7 @@
 <style>
     #iframe {
         margin-top: 15px;
+        white-space: pre-line;
     }
 
     #iframe iframe {
@@ -69,6 +70,7 @@ if (isset($_POST['edit'])) {
 <!-- Nav tabs -->
 <ul class="nav nav-tabs">
     <li class="active"><a href="#settings" data-toggle="tab">Настройки</a></li>
+    <li><a href="#start" data-toggle="tab">Запуск Яндекс Турбо-страниц</a></li>
 </ul>
 
 <!-- Tab panes -->
@@ -83,4 +85,82 @@ if (isset($_POST['edit'])) {
             <input type="submit" class="btn btn-info" name="edit" value="Сохранить настройки"/>
         </form>
     </div>
+    <div class="tab-pane" id="start">
+        <h3>Запуск Яндекс Турбо-страниц вручную</h3>
+        <label class="checkbox">
+            <input type="checkbox" name="force" id="force"/>
+            Принудительное составление фида Турбо-страниц
+        </label>
+        <label class="checkbox">
+            <input type="checkbox" name="clear-temp" id="clear-temp"/>
+            Сброс ранее собранных данных
+        </label>
+        <button class="btn btn-info" value="Запустить сканирование" onclick="startYandexTurboFeed()">
+            Запустить сбор фида
+        </button>
+        <span id="loading"></span>
+
+        <div id="iframe">
+        </div>
+        <div>
+            <p>&nbsp;</p>
+            <h3>Запуск сбора фида Турбо-страниц для Яндекса через cron</h3>
+            <p>Чтобы прописать в cron'е команду на запуск составления карты сайта в терминале выполните команду:</p>
+            <pre><code>crontab -e</code></pre>
+            <p>Далее в открывшемся редакторе запишите такую строку:</p>
+            <pre><code>*/2 5 * * * /usr/bin/php <?php
+                  echo DOCUMENT_ROOT . '/' . $config->cmsFolder; ?>/Ideal/Library/YandexTurboPage/index.php</code></pre>
+            <p>Эта инструкция означает запуск скрипта каждые две минуты с пяти до шести ночи.
+                Если этого времени не хватает для составления фида Турбо-страниц, то можно увеличить диапазон часов.</p>
 </div>
+    </div>
+</div>
+
+<script type="application/javascript">
+    function startYandexTurboFeed() {
+        var param = '';
+        if ($('#force').prop('checked')) {
+            param += '?w=1';
+        }
+        if ($('#clear-temp').prop('checked')) {
+            if (param == '') {
+                param += '?с=1';
+            } else {
+                param += '&с=1';
+            }
+        }
+        $('#loading').html('Идёт составление фида Турбо-страниц. Ждите.');
+        $('#iframe').html('');
+        getYandexTurboFeedAjaxify(param);
+    }
+
+    function getYandexTurboFeedAjaxify(param) {
+        $.ajax({
+            url: 'Ideal/Library/YandexTurboPage/index.php' + param,
+            success: function (data) {
+                $('#iframe').append(data);
+                if (/Выход по таймауту/gim.test(data)) {
+                    param = param.replace('?с=1', '');
+                    param = param.replace('&с=1', '');
+                    getYandexTurboFeedAjaxify(param);
+                } else {
+                    finishLoad();
+                }
+            },
+            error: function (xhr) {
+                $('#iframe').append('<pre> Не удалось завершить сканирование. Статус: '
+                    + xhr.statusCode().status +
+                    '\n Попытка продолжить сканирование через 10 секунд.</pre>');
+                setTimeout(
+                    function () {
+                        getYandexTurboFeedAjaxify(param);
+                    }, 10000);
+            },
+            type: 'get'
+        });
+    }
+
+    function finishLoad() {
+        $('#loading').html('');
+    }
+</script>

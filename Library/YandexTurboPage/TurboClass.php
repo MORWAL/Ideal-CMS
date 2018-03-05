@@ -29,6 +29,12 @@ class TurboClass
     /** @var bool Флаг необходимости кэширования echo/print */
     public $ob = false;
 
+    /** @var bool Флаг необходимости принудительного сбра фида */
+    private $forceParse = false;
+
+    /** @var bool Флаг необходимости сброса ранее собранных страниц */
+    private $clearTemp = false;
+
     /** @var array Массив параметров curl для получения заголовков и html кода страниц */
     private $options = array(
         CURLOPT_RETURNTRANSFER => true, //  возвращать строку, а не выводить в браузере
@@ -52,6 +58,16 @@ class TurboClass
     {
         // Время начала работы скрипта
         $this->start = microtime(1);
+
+
+        // Проверяем надобность сброса ранее собранных страниц и повторного сбора фида
+        $argv = !empty($_SERVER['argv']) ? $_SERVER['argv'] : array();
+        if (isset($_GET['w']) || (array_search('w', $argv) !== false)) {
+            $this->forceParse = true;
+        }
+        if (isset($_GET['с']) || (array_search('с', $argv) !== false)) {
+            $this->clearTemp = true;
+        }
     }
 
     /**
@@ -235,6 +251,9 @@ class TurboClass
             if (!is_writable($this->config['pageroot'] . $this->config['yandexRssFile'])) {
                 $this->stop("File {$this->config['yandexRssFile']} is not writable!");
             }
+            if ($this->forceParse) {
+                unlink($this->config['pageroot'] . $this->config['yandexRssFile']);
+            }
         } else {
             if ((file_put_contents($this->config['pageroot'] . $this->config['yandexRssFile'], '') === false)) {
                 // Файла нет и создать его не удалось
@@ -266,7 +285,7 @@ class TurboClass
     protected function prepareTempFile()
     {
         // Если временного файла нет, то создаём его
-        if (!file_exists($this->config['pageroot'] . $this->config['yandexRssTempFile'])) {
+        if (!file_exists($this->config['pageroot'] . $this->config['yandexRssTempFile']) || $this->clearTemp) {
             // Получаем html-код главной страницы
             $content = $this->getContent($this->config['website']);
 
@@ -307,7 +326,7 @@ class TurboClass
     {
         // Считываем из файла необработанные ссылки
         $this->links = '';
-        if (file_exists($this->config['pageroot'] . $this->config['linksFile'])) {
+        if (file_exists($this->config['pageroot'] . $this->config['linksFile']) && !$this->clearTemp) {
             $this->links = file_get_contents($this->config['pageroot'] . $this->config['linksFile']);
         }
         if ($this->links) {
