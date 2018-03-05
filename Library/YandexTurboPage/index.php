@@ -8,7 +8,7 @@
  */
 require_once __DIR__ . '/TurboClass.php';
 
-$turbo = new TurboClass();
+$turbo = new YandexTurboPage\TurboClass();
 
 $message = '';
 try {

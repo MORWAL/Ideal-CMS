@@ -168,7 +168,13 @@ class TurboClass
 
         // Проверяем наличие файла рядом с запускаемым скриптом
         if (!file_exists($config)) {
-            $this->stop("Configuration file {$config} not found!");
+            // Проверяем, есть ли конфигурационный файл в корневой папке Ideal CMS
+            $config = substr(__DIR__, 0, stripos(__DIR__, '/Ideal/Library/YandexTurboPage')) . '/site_turbo.php';
+            $message = 'Working with settings php-file from config directory';
+            if (!file_exists($config)) {
+                // Конфигурационный файл нигде не нашли :(
+                $this->stop("Configuration file {$config} not found!");
+            }
         }
 
         echo $message . "\n";
@@ -300,7 +306,10 @@ class TurboClass
     protected function getLinksFromSitemap()
     {
         // Считываем из файла необработанные ссылки
-        $this->links = file_get_contents($this->config['pageroot'] . $this->config['linksFile']);
+        $this->links = '';
+        if (file_exists($this->config['pageroot'] . $this->config['linksFile'])) {
+            $this->links = file_get_contents($this->config['pageroot'] . $this->config['linksFile']);
+        }
         if ($this->links) {
             $this->links = unserialize($this->links);
         } else {
@@ -308,11 +317,11 @@ class TurboClass
             $sitemap = file_get_contents($this->config['pageroot'] . $this->config['sitemapFile']);
             $xml = new \SimpleXMLElement($sitemap);
             foreach ($xml->url as $element) {
-                $link = (string)$element->loc;
+                $link = (string) $element->loc;
 
                 // Исключаем страницы подходящие под регулярные выражения из настроек
                 foreach ($this->config['disallow_regexp'] as $regExp) {
-                    if (preg_match($regExp, $link)) {
+                    if ($regExp && preg_match($regExp, $link)) {
                         continue 2;
                     }
                 }
