@@ -477,6 +477,7 @@ class TurboClass
         }
 
         $allowedTags = array(
+            '<img>',
             '<table>',
             '<tr>',
             '<th>',
