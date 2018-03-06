@@ -50,7 +50,18 @@ if (!$file->loadFile(DOCUMENT_ROOT . '/' . $config->cmsFolder . '/site_turbo.php
     // Поэтому читаем данные из демо-файла
     $file->loadFile(DOCUMENT_ROOT . '/' . $config->cmsFolder . '/Ideal/Library/YandexTurboPage/site_turbo_demo.php');
     $params = $file->getParams();
-    $params['default']['arr']['website']['value'] = 'http://' . $config->domain;
+
+    $sitemap = array();
+    if (file_exists(DOCUMENT_ROOT . '/' . $config->cmsFolder . '/site_map.php')) {
+        $sitemap = require_once DOCUMENT_ROOT . '/' . $config->cmsFolder . '/site_map.php';
+        // Записываем путь до файла карты сайта по умолчанию в настройки
+        $params['default']['arr']['sitemapFile']['value'] = $sitemap['sitemap_file'];
+    }
+
+    // Записываем сайт для сканирования по умолчанию в настройки
+    $params['default']['arr']['website']['value'] = $sitemap ? $sitemap['website'] : 'http://' . $config->domain;
+
+    // Записываем корневоую папку на диске
     if (empty($_SERVER['DOCUMENT_ROOT'])) {
         // Обнаружение корня сайта, если скрипт запускается из стандартного места в Ideal CMS
         $self = $_SERVER['PHP_SELF'];
@@ -59,6 +70,14 @@ if (!$file->loadFile(DOCUMENT_ROOT . '/' . $config->cmsFolder . '/site_turbo.php
     } else {
         $params['default']['arr']['pageroot']['value'] = $_SERVER['DOCUMENT_ROOT'];
     }
+
+    // Записываем электронную почту для уведомлений об ошибках по умолчанию в настройки
+    $params['default']['arr']['error_email_notify']['value'] = $config->cms['adminEmail'];
+
+    // Записываем электронную почту для уведомлений менеджера по умолчанию в настройки
+    $params['default']['arr']['manager_email_notify']['value'] = $config->mailForm;
+
+    // Записываем путь до файла карты сайта
     $file->setParams($params);
 }
 
