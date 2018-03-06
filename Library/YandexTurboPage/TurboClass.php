@@ -75,6 +75,7 @@ class TurboClass
 
     /**
      * Загрузка данных из конфига и из промежуточных файлов
+     * @throws \Exception
      */
     public function loadData()
     {
@@ -307,7 +308,8 @@ class TurboClass
             $rss->saveXML($this->config['pageroot'] . $this->config['yandexRssTempFile']);
             $this->rss = $rss;
         } else {
-            $this->rss = new \SimpleXMLElement(file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']));
+            $yandexRssTempFile = file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']);
+            $this->rss = new \SimpleXMLElement($yandexRssTempFile);
         }
     }
 
@@ -389,7 +391,9 @@ class TurboClass
             $newFeedRss = self::getNewSimpleXmlObject();
             foreach ($this->rss->channel->item as $item) {
                 if ($i > $this->itemsLimit) {
-                    $newFeedRss->saveXML($this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'] . $fileNum . '.' . $filesParts['extension']);
+                    $pathToSave = $this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'];
+                    $pathToSave .= $fileNum . '.' . $filesParts['extension'];
+                    $newFeedRss->saveXML($pathToSave);
                     $newFeedRss = self::getNewSimpleXmlObject();
                     $fileNum = (int)$fileNum + 1;
                     $i = 1;
@@ -397,13 +401,17 @@ class TurboClass
                 $newItem = $newFeedRss->channel->addChild('item');
                 $newItem->addAttribute('turbo', 'true');
                 $newItem->addChild('link', $item->link);
-                $newItem->addChild('turbo:content', $item->children('turbo', true)->content, 'http://because.it.necessary');
+                $newItem->addChild('turbo:turbo:content', $item->children('turbo', true)->content);
                 $i++;
             }
-            $newFeedRss->saveXML($this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'] . $fileNum . '.' . $filesParts['extension']);
+            $pathToSave = $this->config['pageroot'] . $filesParts['dirname'] . $filesParts['filename'] . $fileNum;
+            $pathToSave .= '.' . $filesParts['extension'];
+            $newFeedRss->saveXML($pathToSave);
         } else {
             // Копируем временный фид в актуальный
-            file_put_contents($this->config['pageroot'] . $this->config['yandexRssFile'], file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']));
+            $pathToYandexRssFile = $this->config['pageroot'] . $this->config['yandexRssFile'];
+            $yandexRssTempFile = file_get_contents($this->config['pageroot'] . $this->config['yandexRssTempFile']);
+            file_put_contents($pathToYandexRssFile, $yandexRssTempFile);
         }
 
         // Удаляем временный файл
@@ -456,8 +464,13 @@ class TurboClass
     {
         $turboContent = '';
         // Берём контент сотмеченный для фида
-        preg_match_all("/<!--{$this->config['tagLimiter']}-->(.*)<!--end_{$this->config['tagLimiter']}-->/iusU", $content, $turboContentParts);
-        if ($turboContentParts && isset($turboContentParts[1]) && is_array($turboContentParts[1]) && !empty($turboContentParts[1])) {
+        $contentFindPattern = "/<!--{$this->config['tagLimiter']}-->(.*)<!--end_{$this->config['tagLimiter']}-->/iusU";
+        preg_match_all($contentFindPattern, $content, $turboContentParts);
+        if ($turboContentParts &&
+            isset($turboContentParts[1]) &&
+            is_array($turboContentParts[1]) &&
+            !empty($turboContentParts[1])
+        ) {
             foreach ($turboContentParts[1] as $turboContentPart) {
                 $turboContent .= $turboContentPart;
             }
