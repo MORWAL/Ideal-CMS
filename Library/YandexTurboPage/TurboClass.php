@@ -326,7 +326,6 @@ class TurboClass
         return array('title' => $title[1], 'description' => $description[1]);
     }
 
-
     /**
      * Получние ссылок из файла карты сайта
      */
@@ -334,8 +333,14 @@ class TurboClass
     {
         // Считываем из файла необработанные ссылки
         $this->links = '';
-        if (file_exists($this->config['pageroot'] . $this->config['linksFile']) && !$this->clearTemp) {
-            $this->links = file_get_contents($this->config['pageroot'] . $this->config['linksFile']);
+        if (file_exists($this->config['pageroot'] . $this->config['linksFile'])) {
+            // Если возраст файла необработанных ссылок более 23 часов, то считаем что его следует пересобрать
+            if (time() - date('U', filemtime($this->config['pageroot'] . $this->config['linksFile'])) > 82800) {
+                $this->clearTemp = true;
+            }
+            if (!$this->clearTemp) {
+                $this->links = file_get_contents($this->config['pageroot'] . $this->config['linksFile']);
+            }
         }
         if ($this->links) {
             $this->links = unserialize($this->links);
