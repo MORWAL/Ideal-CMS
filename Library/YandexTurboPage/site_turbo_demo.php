@@ -9,6 +9,7 @@ return array(
     'linksFile' => "/tmp/links", // Путь до файла со списком ссылок из карты сайта | Ideal_Text
     'tagLimiter' => "turbofeed", // тэг html-комментария (например "turbofeed", тогда контент будет браться между тегами &lt;!--turbofeed--&gt;&lt;!--end_turbofeed--&gt;) | Ideal_Text
     'disallow_regexp' => "", // Регулярные выражения для адресов, которые не надо включать в турбо-фид | Ideal_RegexpList
+    'disable_regexp' => "", // Регулярные выражения для адресов, которые необходимо деактивировать | Ideal_RegexpList
     'error_email_notify' => "errors@neox.ru", // Электронная почта для уведомления об ошибках в процессе работы скрипта | Ideal_Text
     'manager_email_notify' => "top@neox.ru", // Электронная почта для уведомления менеджера | Ideal_Text
     'max_file_feed_num' => "1", // Максимальное количество файлов-фидов | Ideal_Integer

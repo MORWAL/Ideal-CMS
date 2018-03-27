@@ -133,27 +133,27 @@ class TurboClass
             usleep(1000000);
 
             // Устанавливаем указатель на 1-й элемент
-            $url = reset($this->links);
+            $includeUrl = reset($this->links);
 
-            // Извлекаем ключ для первой ссылки
-            $k = key($this->links);
+            // Извлекаем первую ссылку
+            $url = key($this->links);
 
-            // Получаем html-код страницы
-            $content = $this->getContent($url);
-
-            // Парсим нужную часть контента для вставки в фид
-            $contentToFeed = $this->getContentToFeed($content);
-
-            if ($contentToFeed) {
-                // Добавляем полученный контент к фиду
-                $item = $this->rss->channel->addChild('item');
-                $item->addAttribute('turbo', 'true');
-                $item->addChild('link', $url);
-                $item->addChild('xmlsn:turbo:content', "<![CDATA[\n{$contentToFeed}");
+            $contentToFeed = '';
+            // Получаем html-код страницы только для активных страниц
+            if ($includeUrl) {
+                $content = $this->getContent($url);
+                // Парсим нужную часть контента для вставки в фид
+                $contentToFeed = $this->getContentToFeed($content);
             }
 
+            // Добавляем полученный контент к фиду
+            $item = $this->rss->channel->addChild('item');
+            $item->addAttribute('turbo', $includeUrl && $contentToFeed ? 'true' : 'false');
+            $item->addChild('link', $url);
+            $item->addChild('xmlsn:turbo:content', "<![CDATA[\n{$contentToFeed}");
+
             // И удаляем из массива непройденных
-            unset($this->links[$k]);
+            unset($this->links[$url]);
 
             $time = microtime(1);
         }
@@ -215,7 +215,8 @@ class TurboClass
             'sitemapFile' => '/sitemap.xml',
             'yandexRssTempFile' => '/feed/yandexTempRss.xml',
             'linksFile' => '/feed/links',
-            'disallow_regexp' => ''
+            'disallow_regexp' => '',
+            'disable_regexp' => ''
         );
         foreach ($default as $key => $value) {
             if (!isset($this->config[$key])) {
@@ -225,6 +226,9 @@ class TurboClass
 
         // Строим массивы для пропуска GET-параметров и URL по регулярным выражениям
         $this->config['disallow_regexp'] = explode("\n", $this->config['disallow_regexp']);
+
+        // Строим массивы для деактивации адресов в фиде
+        $this->config['disable_regexp'] = explode("\n", $this->config['disable_regexp']);
     }
 
     /**
@@ -332,7 +336,7 @@ class TurboClass
     protected function getLinksFromSitemap()
     {
         // Считываем из файла необработанные ссылки
-        $this->links = '';
+        $this->links = array();
         if (file_exists($this->config['pageroot'] . $this->config['linksFile'])) {
             // Если возраст файла необработанных ссылок более 23 часов, то считаем что его следует пересобрать
             if (time() - date('U', filemtime($this->config['pageroot'] . $this->config['linksFile'])) > 82800) {
@@ -351,13 +355,19 @@ class TurboClass
             foreach ($xml->url as $element) {
                 $link = (string) $element->loc;
 
-                // Исключаем страницы подходящие под регулярные выражения из настроек
+                // Проверяем страницы на надобность деактивации
+                foreach ($this->config['disable_regexp'] as $regExp) {
+                    if ($regExp && preg_match($regExp, $link)) {
+                        $this->links[$link] = 0;
+                        continue 2;
+                    }
+                }
                 foreach ($this->config['disallow_regexp'] as $regExp) {
                     if ($regExp && preg_match($regExp, $link)) {
                         continue 2;
                     }
                 }
-                $this->links[] = $link;
+                $this->links[$link] = 1;
             }
 
             // Записываем данные из карты сайта в файл со списком ссылок
