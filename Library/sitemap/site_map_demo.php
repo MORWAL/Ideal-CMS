@@ -23,4 +23,5 @@ return array(
     'email_notify' => "top@neox.ru", // Электронная почта для уведомления о добавленных/удалённых ссылках | Ideal_Text
     'email_json' => "help@neox.ru", // Электронная почта для уведомлений об изменениях в карте сайта (json-формат) | Ideal_Text
     'get_links_in_content' => "0", // Собирать перелинковку | Ideal_Checkbox
+    'follow_redirects' => "0", // Следовать за редиректами | Ideal_Checkbox
 );

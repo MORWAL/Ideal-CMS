@@ -93,6 +93,13 @@ class Crawler
         // Установка максимального времени на загрузку страницы
         $this->options[CURLOPT_TIMEOUT] = $this->options[CURLOPT_CONNECTTIMEOUT] = $this->config['load_timeout'];
 
+        // Установка надобности следования редиректами
+        $this->options[CURLOPT_FOLLOWLOCATION] = boolval($this->config['follow_redirects']);
+        if ($this->options[CURLOPT_FOLLOWLOCATION]) {
+            // Если нужно следовать за редиректами, то следуем не более чем за тремя
+            $this->options[CURLOPT_MAXREDIRS] = 3;
+        }
+
         // Проверка существования файла sitemap.xml и его даты
         $this->prepareSiteMapFile();
 
@@ -204,6 +211,7 @@ class Crawler
             'disallow_regexp' => '',
             'seo_urls' => '',
             'get_links_in_content' => '1',
+            'follow_redirects' => '0',
         );
         foreach ($default as $key => $value) {
             if (!isset($this->config[$key])) {
