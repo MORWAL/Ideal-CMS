@@ -417,7 +417,7 @@ class Crawler
             reset($this->links);
 
             // Извлекаем ключ текущего элемента (то есть ссылку)
-            $k = key($this->links);
+            $pageUrl = $k = key($this->links);
 
             echo $number++ . '. ' . $k . "\n";
 
@@ -436,20 +436,20 @@ class Crawler
              */
 
             // Получаем контент страницы
-            $content = $this->getUrl($k, $this->links[$k]);
+            $content = $this->getUrl($this->links[$k], $k);
 
             // Парсим ссылки из контента
             $urls = $this->parseLinks($content);
 
             if (count($urls) < 10) {
                 // Если мало ссылок на странице, значит что-то пошло не так и её нужно перечитать повторно
-                if (isset($broken[$k])) {
+                if (isset($broken[$pageUrl])) {
                     // Если и при повторном чтении не удалось получить нормальную страницу, то останавливаемся
                     $this->stop("Сбой при чтении страницы {$k}\nПолучен следующий контент:\n{$content}");
                 }
-                $value = $this->links[$k];
-                unset($this->links[$k]);
-                $this->links[$k] = $broken[$k] = $value;
+                $value = $this->links[$pageUrl];
+                unset($this->links[$pageUrl]);
+                $this->links[$pageUrl] = $broken[$pageUrl] = $value;
             }
 
             // Добавляем ссылки в массив $this->links
@@ -464,10 +464,20 @@ class Crawler
             }
 
             // Добавляем текущую ссылку в массив пройденных ссылок
-            $this->checked[$k] = 1;
+            if ($pageUrl == $k) {
+                $this->checked[$k] = 1;
+            } else {
+                // Если эта ссылка была получена через редирект, то добавляем соответствующую информацию
+                // Если финальная страница являетс явнешней, то делаем соответствующую пометку
+                $external = false;
+                if ($this->isExternalLink($k, $this->links[$pageUrl])) {
+                    $external = true;
+                }
+                $this->checked[$k] = array($this->links[$pageUrl], $pageUrl, $external);
+            }
 
             // И удаляем из массива непройденных
-            unset($this->links[$k]);
+            unset($this->links[$pageUrl]);
 
             $time = microtime(1);
         }
@@ -557,6 +567,7 @@ class Crawler
 
         $new = $this->checked;
         $external = $this->external;
+        $redirects = array();
 
         // Сохраним новый массив ссылок, что бы в следующий раз взять его как старый
         file_put_contents($file, serialize(array($new, $external)));
@@ -572,6 +583,12 @@ class Crawler
             $modifications = true;
             $text = "Добавлены ссылки (первичная генерация карты)\n";
             foreach ($new as $k => $v) {
+                if (is_array($v)) {
+                    $redirects[$k] = $v;
+                    if ($v[2]) {
+                        continue;
+                    }
+                }
                 $text .= $k;
                 $text .= "\n";
             }
@@ -582,6 +599,12 @@ class Crawler
                 $modifications = true;
                 $text .= "Добавлены ссылки\n";
                 foreach ($add as $k => $v) {
+                    if (is_array($v)) {
+                        $redirects[$k] = $v;
+                        if ($v[2]) {
+                            continue;
+                        }
+                    }
                     $text .= $k;
                     $text .= "\n";
                 }
@@ -631,6 +654,14 @@ class Crawler
                 }
             } else {
                 $text .= "\nНет удаленных внешних ссылок";
+            }
+        }
+
+        // Если есть ссылки к которым пришли с редиректами, то уведомляем об этом дополнительно
+        if (!empty($redirects)) {
+            $text .= "\nСсылки с редиректом:\n";
+            foreach ($redirects as $k => $v) {
+                $text .= "{$v[1]} на странице {$v[0]} ведёт на {$k}\n";
             }
         }
 
@@ -742,6 +773,10 @@ class Crawler
 
         $ret = '';
         foreach ($this->checked as $k => $v) {
+            // Внешние ссылки не должны попадать в карту сайта
+            if (is_array($v) && $v[2]) {
+                continue;
+            }
             $ret .= '<url>';
             $ret .= sprintf('<loc>%s</loc>', $this->xmlEscape($k));
             // Временно без даты последнего изменения
@@ -805,11 +840,12 @@ XML;
     /**
      * Метод для получения html-кода страницы по адресу $k в основном цикле
      *
-     * @param string $k Ссылка на страницу для получения её контента
      * @param string $place Страница, на которой получили ссылку (нужна только в случае ошибки)
+     * @param string $k Ссылка на страницу для получения её контента
      * @return string Html-код страницы
+     * @throws \Exception
      */
-    private function getUrl($k, $place)
+    private function getUrl($place, &$k)
     {
         // Проверяем, не является ли файл тем, в котором не нужно искать ссылки
         $ext = strtolower(pathinfo($k, PATHINFO_EXTENSION));
@@ -840,6 +876,12 @@ XML;
         // Если размер страницы больше 3 МБ, то не анализируем контент
         if ($info['size_download'] > 3145728) {
             return '';
+        }
+
+        // Проверяем был ли редирект до получения информаци
+        if ($k != $info["url"]) {
+            // Считаем что сразу запрашивалась финальная страница для составления правильной карты сайта
+            $k = $info["url"];
         }
 
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE); // получаем размер header'а
