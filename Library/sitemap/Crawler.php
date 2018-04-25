@@ -419,7 +419,7 @@ class Crawler
             // Извлекаем ключ текущего элемента (то есть ссылку)
             $pageUrl = $k = key($this->links);
 
-            echo $number++ . '. ' . $k . "\n";
+            echo $number++ . '. ' . $k;
 
             /**
              * // handle lastmod
@@ -437,6 +437,7 @@ class Crawler
 
             // Получаем контент страницы
             $content = $this->getUrl($this->links[$k], $k);
+            echo "\n";
 
             // Парсим ссылки из контента
             $urls = $this->parseLinks($content);
@@ -465,15 +466,16 @@ class Crawler
 
             // Добавляем текущую ссылку в массив пройденных ссылок
             if ($pageUrl == $k) {
-                $this->checked[$k] = 1;
+                $this->checked[$pageUrl] = 1;
             } else {
                 // Если эта ссылка была получена через редирект, то добавляем соответствующую информацию
-                // Если финальная страница являетс явнешней, то делаем соответствующую пометку
+                // Если финальная страница является внешней, то делаем соответствующую пометку
                 $external = false;
                 if ($this->isExternalLink($k, $this->links[$pageUrl])) {
                     $external = true;
                 }
                 $this->checked[$k] = array($this->links[$pageUrl], $pageUrl, $external);
+                $this->checked[$pageUrl] = 0;
             }
 
             // И удаляем из массива непройденных
@@ -588,6 +590,8 @@ class Crawler
                     if ($v[2]) {
                         continue;
                     }
+                } elseif (!$v) {
+                    continue;
                 }
                 $text .= $k;
                 $text .= "\n";
@@ -604,6 +608,8 @@ class Crawler
                         if ($v[2]) {
                             continue;
                         }
+                    } elseif (!$v) {
+                        continue;
                     }
                     $text .= $k;
                     $text .= "\n";
@@ -774,7 +780,7 @@ class Crawler
         $ret = '';
         foreach ($this->checked as $k => $v) {
             // Внешние ссылки не должны попадать в карту сайта
-            if (is_array($v) && $v[2]) {
+            if ((is_array($v) && $v[2]) || !$v) {
                 continue;
             }
             $ret .= '<url>';
@@ -882,6 +888,7 @@ XML;
         if ($k != $info["url"]) {
             // Считаем что сразу запрашивалась финальная страница для составления правильной карты сайта
             $k = $info["url"];
+            echo ' -> ' . $info["url"];
         }
 
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE); // получаем размер header'а
